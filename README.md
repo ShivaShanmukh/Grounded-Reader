@@ -52,15 +52,3 @@ high-assurance choice — secrets never reach the client.)
 The Anthropic SDK calls here follow the official Python SDK docs, but model names
 and API details change. Confirm the current model list at https://docs.claude.com
 before relying on a specific one. The default model is set in `.env`.
-
-## How to talk about it (the part that gets you hired)
-
-Don't say "I built an AI app." Say:
-
-> "I built a reading tool for high-assurance settings. The interesting part isn't
-> the AI call — it's that the system verifies every answer against the source and
-> refuses to show anything it can't prove. It would rather say *not found* than
-> guess. Here's what would break at scale, and how I'd harden it…"
-
-That sentence shows you understand the real problem these teams have: not *can AI
-answer*, but *can you trust the answer*.
