@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Grounded Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Newsreader:ital,opsz@0,6..72;1,6..72&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #14110f;
+    --panel: #1c1916;
+    --ink: #ece5db;
+    --muted: #8a7f72;
+    --line: #2e2924;
+    --verified: #6bd08a;
+    --rejected: #d98a6a;
+    --accent: #e8c98a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(120% 120% at 50% 0%, #1a1613 0%, var(--bg) 60%);
+    color: var(--ink);
+    font-family: "Newsreader", Georgia, serif;
+    font-size: 18px;
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 64px 24px 96px; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 36px; }
+  .kicker {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 14px;
+  }
+  h1 {
+    font-family: "Fraunces", serif; font-weight: 600;
+    font-size: clamp(40px, 7vw, 64px); line-height: 1.0; margin: 0 0 14px;
+    letter-spacing: -0.02em;
+  }
+  .sub { color: var(--muted); font-size: 18px; max-width: 52ch; margin: 0; font-style: italic; }
+  label { display: block; font-family: "JetBrains Mono", monospace; font-size: 12px;
+          letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin: 26px 0 8px; }
+  textarea, input {
+    width: 100%; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; color: var(--ink); padding: 14px 16px;
+    font-family: "Newsreader", serif; font-size: 17px; resize: vertical;
+  }
+  textarea { min-height: 180px; }
+  textarea:focus, input:focus { outline: none; border-color: var(--accent); }
+  button {
+    margin-top: 22px; background: var(--accent); color: #1a1613; border: none;
+    border-radius: 8px; padding: 13px 26px; cursor: pointer;
+    font-family: "JetBrains Mono", monospace; font-size: 13px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase; transition: transform .12s ease;
+  }
+  button:hover { transform: translateY(-2px); }
+  button:disabled { opacity: .5; cursor: wait; transform: none; }
+
+  #results { margin-top: 44px; }
+  .status { font-family: "JetBrains Mono", monospace; font-size: 13px; color: var(--muted);
+            border-left: 2px solid var(--line); padding-left: 14px; margin-bottom: 26px; }
+  .finding {
+    background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--verified);
+    border-radius: 8px; padding: 18px 20px; margin-bottom: 16px;
+    opacity: 0; transform: translateY(10px); animation: rise .5s ease forwards;
+  }
+  .finding.rejected { border-left-color: var(--rejected); opacity: 1; }
+  .badge { font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 0.1em;
+           text-transform: uppercase; }
+  .badge.ok { color: var(--verified); }
+  .badge.no { color: var(--rejected); }
+  .claim { margin: 8px 0 10px; font-size: 19px; }
+  .quote { color: var(--muted); font-style: italic; border-left: 2px solid var(--line);
+           padding-left: 12px; font-size: 16px; }
+  .rejected .claim { color: var(--muted); text-decoration: line-through; }
+  .notfound { font-style: italic; color: var(--accent); font-size: 20px; }
+  .audit { margin-top: 32px; font-family: "JetBrains Mono", monospace; font-size: 12px;
+           color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+  @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="kicker">High-assurance reading instrument</div>
+      <h1>Grounded Reader</h1>
+      <p class="sub">It answers only from the text you give it, shows the exact line behind every answer, and discards anything it can't prove.</p>
+    </header>
+
+    <label for="source">Source text</label>
+    <textarea id="source" placeholder="Paste a document, policy, contract, report…"></textarea>
+
+    <label for="question">Your question</label>
+    <input id="question" type="text" placeholder="e.g. What is the notice period?" />
+
+    <button id="run">Analyse</button>
+
+    <div id="results"></div>
+  </div>
+
+<script>
+  const btn = document.getElementById("run");
+  const results = document.getElementById("results");
+
+  btn.addEventListener("click", async () => {
+    const source = document.getElementById("source").value.trim();
+    const question = document.getElementById("question").value.trim();
+    if (!source || !question) {
+      results.innerHTML = '<div class="status">Add some source text and a question first.</div>';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = "Reading…";
+    results.innerHTML = '<div class="status">Reading the source, then verifying every quote against it…</div>';
+
+    try {
+      const res = await fetch("/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source, question }),
+      });
+      const data = await res.json();
+      render(data);
+    } catch (e) {
+      results.innerHTML = '<div class="status">Something went wrong reaching the server.</div>';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = "Analyse";
+    }
+  });
+
+  function render(data) {
+    if (data.error) {
+      results.innerHTML = '<div class="status">' + escape(data.error) + '</div>';
+      return;
+    }
+
+    let html = "";
+    if (!data.answer_found) {
+      html += '<p class="notfound">Not found in the source — so it says nothing rather than guessing.</p>';
+    }
+
+    (data.verified || []).forEach((f, i) => {
+      html += `
+        <div class="finding" style="animation-delay:${i * 120}ms">
+          <span class="badge ok">✓ Verified in source</span>
+          <p class="claim">${escape(f.claim)}</p>
+          <p class="quote">"${escape(f.quote)}"</p>
+        </div>`;
+    });
+
+    (data.rejected || []).forEach((f) => {
+      html += `
+        <div class="finding rejected">
+          <span class="badge no">✗ Couldn't verify — discarded</span>
+          <p class="claim">${escape(f.claim)}</p>
+        </div>`;
+    });
+
+    const a = data.audit || {};
+    html += `<div class="audit">audit · model ${escape(a.model || "")} · returned ${a.claims_returned} · kept ${a.claims_verified} · discarded ${a.claims_rejected} · id ${escape(data.request_id || "")}</div>`;
+
+    results.innerHTML = html;
+  }
+
+  function escape(s) {
+    return (s || "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#x27;" }[c]));
+  }
+</script>
+</body>
+</html>
